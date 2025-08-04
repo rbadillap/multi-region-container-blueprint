@@ -1,0 +1,51 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.tfvars
+*.tfvars.json
+
+# Terragrunt
+.terragrunt-cache/
+terragrunt-debug.tfvars
+
+# AWS
+.aws/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Kubeconfig files
+kubeconfig.yaml
+kubeconfig
+
+# Backup files
+*.backup
+*.bak
+
+# Generated files
+backend.tf
+provider.tf 
