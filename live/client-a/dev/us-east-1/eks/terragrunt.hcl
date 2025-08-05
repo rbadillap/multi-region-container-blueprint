@@ -33,11 +33,11 @@ inputs = {
   enable_aws_load_balancer_controller = false
   
   # IAM Role configuration for EKS access
-  create_admin_role = true
-  admin_role_arns   = []  # Will use root account as fallback
-  create_viewer_role = false
-  viewer_role_arns   = []
-  map_users          = []
+  create_admin_role   = true
+  admin_role_arns     = []  # Will use root account as fallback
+  create_viewer_role  = true
+  viewer_role_arns    = []
+  map_users           = []
   
   tags = {
     Component = "eks"
