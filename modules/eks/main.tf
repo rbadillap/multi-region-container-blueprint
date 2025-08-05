@@ -1,3 +1,28 @@
+# Kubernetes Provider Configuration
+provider "kubernetes" {
+  host                   = aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+  
+  # Wait for the cluster to be ready
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args = [
+      "eks",
+      "get-token",
+      "--cluster-name",
+      aws_eks_cluster.main.name,
+      "--region",
+      data.aws_region.current.name
+    ]
+  }
+}
+
+data "aws_eks_cluster_auth" "main" {
+  name = aws_eks_cluster.main.name
+}
+
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
@@ -256,36 +281,42 @@ resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
 }
 
 # AWS Auth ConfigMap for IAM role mapping
-resource "null_resource" "aws_auth_configmap" {
-  triggers = {
-    cluster_endpoint = aws_eks_cluster.main.endpoint
-    cluster_name     = aws_eks_cluster.main.name
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
   }
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${data.aws_region.current.name}
-      
-      cat <<EOF | kubectl apply -f -
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: aws-auth
-        namespace: kube-system
-      data:
-        mapRoles: |
-          - rolearn: ${aws_iam_role.eks_node_group.arn}
-            username: system:node:{{EC2PrivateDNSName}}
-            groups:
-              - system:bootstrappers
-              - system:nodes
-          ${var.create_admin_role ? "- rolearn: ${aws_iam_role.eks_admin[0].arn}\n            username: admin:{{SessionName}}\n            groups:\n              - system:masters" : ""}
-          ${var.create_viewer_role ? "- rolearn: ${aws_iam_role.eks_viewer[0].arn}\n            username: viewer:{{SessionName}}\n            groups:\n              - system:viewers" : ""}
-        mapUsers: |
-          ${length(var.map_users) > 0 ? yamlencode(var.map_users) : ""}
-      EOF
-    EOT
+  data = {
+    mapRoles = yamlencode(concat([
+      {
+        rolearn  = aws_iam_role.eks_node_group.arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups = [
+          "system:bootstrappers",
+          "system:nodes"
+        ]
+      }
+    ], 
+    var.create_admin_role ? [{
+      rolearn  = aws_iam_role.eks_admin[0].arn
+      username = "admin:{{SessionName}}"
+      groups = [
+        "system:masters"
+      ]
+    }] : [],
+    var.create_viewer_role ? [{
+      rolearn  = aws_iam_role.eks_viewer[0].arn
+      username = "viewer:{{SessionName}}"
+      groups = [
+        "system:viewers"
+      ]
+    }] : []
+    ))
+    mapUsers = yamlencode(var.map_users)
   }
 
   depends_on = [aws_eks_cluster.main, aws_eks_node_group.main]
 }
+
+data "aws_region" "current" {}
