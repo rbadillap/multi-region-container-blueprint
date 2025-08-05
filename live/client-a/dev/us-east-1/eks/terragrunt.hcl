@@ -18,7 +18,7 @@ terraform {
 
 inputs = {
   cluster_name        = local.cluster_name
-  kubernetes_version  = "1.28"
+  kubernetes_version  = "1.29"
   vpc_id             = dependency.networking.outputs.vpc_id
   public_subnet_ids  = dependency.networking.outputs.public_subnet_ids
   private_subnet_ids = dependency.networking.outputs.private_subnet_ids
@@ -31,6 +31,13 @@ inputs = {
   
   # Optional: Enable AWS Load Balancer Controller
   enable_aws_load_balancer_controller = false
+  
+  # IAM Role configuration for EKS access
+  create_admin_role = true
+  admin_role_arns   = []  # Will use root account as fallback
+  create_viewer_role = false
+  viewer_role_arns   = []
+  map_users          = []
   
   tags = {
     Component = "eks"

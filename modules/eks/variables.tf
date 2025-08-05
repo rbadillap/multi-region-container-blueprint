@@ -6,7 +6,7 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "Kubernetes version for the cluster"
   type        = string
-  default     = "1.28"
+  default     = "1.29"
 }
 
 variable "vpc_id" {
@@ -58,4 +58,38 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "create_admin_role" {
+  description = "Whether to create an admin IAM role for EKS access"
+  type        = bool
+  default     = true
+}
+
+variable "admin_role_arns" {
+  description = "List of IAM role ARNs that can assume the admin role"
+  type        = list(string)
+  default     = []
+}
+
+variable "create_viewer_role" {
+  description = "Whether to create a viewer IAM role for EKS access"
+  type        = bool
+  default     = false
+}
+
+variable "viewer_role_arns" {
+  description = "List of IAM role ARNs that can assume the viewer role"
+  type        = list(string)
+  default     = []
+}
+
+variable "map_users" {
+  description = "List of IAM users to map to Kubernetes RBAC"
+  type = list(object({
+    userarn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = []
 } 

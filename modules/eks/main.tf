@@ -21,6 +21,51 @@ resource "aws_eks_cluster" "main" {
   tags = var.tags
 }
 
+# IAM Role for EKS Cluster Access (for users/roles that need admin access)
+resource "aws_iam_role" "eks_admin" {
+  count = var.create_admin_role ? 1 : 0
+  name  = "${var.cluster_name}-admin-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = length(var.admin_role_arns) > 0 ? var.admin_role_arns : ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Data source to get current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# IAM Role for EKS Cluster Access (for users that need read-only access)
+resource "aws_iam_role" "eks_viewer" {
+  count = var.create_viewer_role ? 1 : 0
+  name  = "${var.cluster_name}-viewer-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = var.viewer_role_arns
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
 # EKS Cluster IAM Role
 resource "aws_iam_role" "eks_cluster" {
   name = "${var.cluster_name}-cluster-role"
@@ -208,4 +253,39 @@ resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
   count      = var.enable_aws_load_balancer_controller ? 1 : 0
   role       = aws_iam_role.aws_load_balancer_controller[0].name
   policy_arn = "arn:aws:iam::aws:policy/AWSLoadBalancerControllerIAMPolicy"
-} 
+}
+
+# AWS Auth ConfigMap for IAM role mapping
+resource "null_resource" "aws_auth_configmap" {
+  triggers = {
+    cluster_endpoint = aws_eks_cluster.main.endpoint
+    cluster_name     = aws_eks_cluster.main.name
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${data.aws_region.current.name}
+      
+      cat <<EOF | kubectl apply -f -
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: aws-auth
+        namespace: kube-system
+      data:
+        mapRoles: |
+          - rolearn: ${aws_iam_role.eks_node_group.arn}
+            username: system:node:{{EC2PrivateDNSName}}
+            groups:
+              - system:bootstrappers
+              - system:nodes
+          ${var.create_admin_role ? "- rolearn: ${aws_iam_role.eks_admin[0].arn}\n            username: admin:{{SessionName}}\n            groups:\n              - system:masters" : ""}
+          ${var.create_viewer_role ? "- rolearn: ${aws_iam_role.eks_viewer[0].arn}\n            username: viewer:{{SessionName}}\n            groups:\n              - system:viewers" : ""}
+        mapUsers: |
+          ${length(var.map_users) > 0 ? yamlencode(var.map_users) : ""}
+      EOF
+    EOT
+  }
+
+  depends_on = [aws_eks_cluster.main, aws_eks_node_group.main]
+}
