@@ -7,8 +7,11 @@ dependency "networking" {
 }
 
 locals {
+  account      = read_terragrunt_config(find_in_parent_folders("account.hcl"))
+  account_name = local.account.locals.account_name
+
   # Environment-specific variables
-  cluster_name = "client-a-dev-ecs"
+  cluster_name = "${local.account_name}-dev-ecs"
   region       = "us-east-1"
 }
 

@@ -9,7 +9,7 @@
 MRCB is a reusable and well-structured Terragrunt/Terraform project that enables deploying:
 - Amazon ECS (with Fargate) services
 - Amazon EKS clusters
-- Across multiple clients and environments (dev/prod) in different regions
+- Across multiple AWS accounts and environments (dev/prod) in different regions
 - Using a **common, DRY, version-controlled IaC codebase**
 
 ## 🏗 Architecture
@@ -40,7 +40,7 @@ MRCB is a reusable and well-structured Terragrunt/Terraform project that enables
 
 ```
 mrcb/
-├── live/                       # Terragrunt configurations per client/env/region
+├── accounts/                   # Terragrunt configurations per account/env/region
 │   └── client-a/
 │       ├── dev/
 │       │   ├── us-east-1/
@@ -98,7 +98,7 @@ mrcb/
 2. **Deploy infrastructure:**
    ```bash
    # Deploy networking
-   cd live/client-a/dev/us-east-1/networking
+   cd accounts/client-a/dev/us-east-1/networking
    terragrunt init && terragrunt apply
    
    # Deploy ECS
@@ -118,9 +118,10 @@ mrcb/
 ## 🔧 Key Features
 
 - **Multi-Region Support**: Deploy to multiple AWS regions with consistent configuration
-- **Multi-Client Support**: Support multiple clients with isolated infrastructure
+- **Multi-Account Support**: Support multiple AWS accounts with isolated infrastructure
 - **Environment Separation**: Separate dev/prod environments with different configurations
 - **DRY Configuration**: Reusable modules with environment-specific customization
+- **Account Configuration**: Centralized account configuration with `account.hcl` files
 - **State Management**: S3 backend with DynamoDB locking for team collaboration
 - **Security Best Practices**: Private subnets, security groups, IAM roles with least privilege
 

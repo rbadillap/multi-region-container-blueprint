@@ -3,8 +3,11 @@ include "root" {
 }
 
 locals {
+  account      = read_terragrunt_config(find_in_parent_folders("account.hcl"))
+  account_name = local.account.locals.account_name
+
   # Environment-specific variables
-  name_prefix = "client-a-dev"
+  name_prefix = "${local.account_name}-dev"
   region      = "us-east-1"
   
   # VPC and subnet CIDR blocks

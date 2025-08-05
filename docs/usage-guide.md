@@ -20,13 +20,22 @@ This guide provides step-by-step instructions for using the Multi-Region Contain
 This project follows the modern Terragrunt best practices:
 
 - **Root Configuration**: Uses `root.hcl` instead of the legacy `terragrunt.hcl` pattern
-- **Child Configurations**: Each component has its own `terragrunt.hcl` file that includes the root configuration
-- **Explicit References**: Child configurations explicitly reference `root.hcl` using `find_in_parent_folders("root.hcl")`
+- **Account Configuration**: Uses `account.hcl` files to centralize account-specific settings
+- **Child Configurations**: Each component has its own `terragrunt.hcl` file that includes both root and account configurations
+- **Explicit References**: Child configurations explicitly reference both `root.hcl` and `account.hcl` using `find_in_parent_folders()`
 
 Example child configuration:
 ```hcl
 include "root" {
   path = find_in_parent_folders("root.hcl")
+}
+
+include "account" {
+  path = find_in_parent_folders("account.hcl")
+}
+
+locals {
+  name_prefix = "${include.account.locals.account_name}-dev"
 }
 
 terraform {
@@ -112,7 +121,7 @@ Networking must be deployed first as it provides the foundation for ECS and EKS.
 
 ```bash
 # Navigate to networking directory
-cd live/client-a/dev/us-east-1/networking
+cd accounts/acme/dev/us-east-1/networking
 
 # Initialize Terragrunt
 terragrunt init
@@ -186,7 +195,7 @@ Expected outputs:
 
 ```bash
 # Complete deployment for one region
-cd live/client-a/dev/us-east-1
+cd accounts/acme/dev/us-east-1
 
 # Deploy in order: networking → ecs → eks
 cd networking && terragrunt apply
@@ -198,7 +207,7 @@ cd ../eks && terragrunt apply
 
 ```bash
 # Deploy networking to both regions
-cd live/client-a/dev/us-east-1/networking && terragrunt apply
+cd accounts/acme/dev/us-east-1/networking && terragrunt apply
 cd ../../eu-west-1/networking && terragrunt apply
 
 # Deploy ECS to both regions
@@ -214,7 +223,7 @@ cd ../../eu-west-1/eks && terragrunt apply
 
 ```bash
 # Deploy to production (adjust resource sizes)
-cd live/client-a/prod/us-east-1
+cd accounts/acme/prod/us-east-1
 
 # Deploy networking with production settings
 cd networking && terragrunt apply
@@ -233,7 +242,7 @@ cd ../eks && terragrunt apply
 Each environment can have different configurations:
 
 ```hcl
-# Development environment (live/client-a/dev/us-east-1/ecs/terragrunt.hcl)
+# Development environment (accounts/acme/dev/us-east-1/ecs/terragrunt.hcl)
 inputs = {
   service_desired_count = 2
   task_cpu = 256
@@ -241,7 +250,7 @@ inputs = {
   enable_autoscaling = true
 }
 
-# Production environment (live/client-a/prod/us-east-1/ecs/terragrunt.hcl)
+# Production environment (accounts/acme/prod/us-east-1/ecs/terragrunt.hcl)
 inputs = {
   service_desired_count = 4
   task_cpu = 512
@@ -365,31 +374,32 @@ kubectl get nodes
 
 ## 🔧 Advanced Usage
 
-### Adding a New Client
+### Adding a New Account
 
-1. **Create directory structure:**
+1. **Create account directory and configuration:**
    ```bash
-   mkdir -p live/client-b/{dev,prod}/{us-east-1,eu-west-1}/{networking,ecs,eks}
+   mkdir -p accounts/new-account
    ```
 
-2. **Copy and modify terragrunt.hcl files:**
-   ```bash
-   cp live/client-a/dev/us-east-1/networking/terragrunt.hcl \
-      live/client-b/dev/us-east-1/networking/terragrunt.hcl
-   ```
-
-3. **Update client-specific values:**
+2. **Create account.hcl file:**
    ```hcl
+   # accounts/new-account/account.hcl
    locals {
-     name_prefix = "client-b-dev"  # Update this
+     account_name = "new-account"
    }
+   ```
+
+3. **Generate terragrunt configurations:**
+   ```bash
+   ./scripts/generate-terragrunt-configs.sh new-account dev us-east-1
+   ./scripts/generate-terragrunt-configs.sh new-account prod us-east-1
    ```
 
 4. **Create state management infrastructure:**
    ```bash
-   aws s3 mb s3://mrcb-terraform-state-client-b-dev --region us-east-1
+   aws s3 mb s3://mrcb-terraform-state-new-account-dev --region us-east-1
    aws dynamodb create-table \
-     --table-name mrcb-terraform-locks-client-b-dev \
+     --table-name mrcb-terraform-locks-new-account-dev \
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --billing-mode PAY_PER_REQUEST \
@@ -398,24 +408,24 @@ kubectl get nodes
 
 ### Adding a New Region
 
-1. **Create region directory structure:**
+1. **Generate configurations for the new region:**
    ```bash
-   mkdir -p live/client-a/dev/us-west-2/{networking,ecs,eks}
+   ./scripts/generate-terragrunt-configs.sh acme dev us-west-2
    ```
 
-2. **Update region-specific configurations:**
+2. **Update region-specific configurations if needed:**
    ```hcl
    locals {
      region = "us-west-2"
      availability_zones = ["us-west-2a", "us-west-2b"]
-     public_subnet_cidrs = ["10.0.3.0/24", "10.0.4.0/24"]
-     private_subnet_cidrs = ["10.0.12.0/24", "10.0.13.0/24"]
+     public_subnet_cidrs = ["10.2.1.0/24", "10.2.2.0/24"]
+     private_subnet_cidrs = ["10.2.10.0/24", "10.2.11.0/24"]
    }
    ```
 
 3. **Deploy in order:**
    ```bash
-   cd live/client-a/dev/us-west-2/networking && terragrunt apply
+   cd accounts/acme/dev/us-west-2/networking && terragrunt apply
    cd ../ecs && terragrunt apply
    cd ../eks && terragrunt apply
    ```
@@ -464,19 +474,19 @@ jobs:
       
       - name: Deploy Networking
         run: |
-          cd live/client-a/dev/us-east-1/networking
+          cd accounts/acme/dev/us-east-1/networking
           terragrunt init
           terragrunt apply -auto-approve
       
       - name: Deploy ECS
         run: |
-          cd live/client-a/dev/us-east-1/ecs
+          cd accounts/acme/dev/us-east-1/ecs
           terragrunt init
           terragrunt apply -auto-approve
       
       - name: Deploy EKS
         run: |
-          cd live/client-a/dev/us-east-1/eks
+          cd accounts/acme/dev/us-east-1/eks
           terragrunt init
           terragrunt apply -auto-approve
 ```
@@ -487,7 +497,7 @@ jobs:
 
 ```bash
 # Destroy in reverse order: eks → ecs → networking
-cd live/client-a/dev/us-east-1/eks && terragrunt destroy
+cd accounts/acme/dev/us-east-1/eks && terragrunt destroy
 cd ../ecs && terragrunt destroy
 cd ../networking && terragrunt destroy
 ```

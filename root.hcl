@@ -2,7 +2,7 @@
 locals {
   # Parse the path to extract environment information
   path_parts = split("/", path_relative_to_include())
-  
+
   # Extract client, environment, region, and component from path
   client     = local.path_parts[1]
   env        = local.path_parts[2]

@@ -141,7 +141,7 @@ main() {
     print_status "You can now run Terragrunt commands to deploy your infrastructure."
     echo
     print_status "Example commands:"
-    echo "  cd live/${client}/${env}/${region}/networking"
+    echo "  cd accounts/${client}/${env}/${region}/networking"
     echo "  terragrunt init"
     echo "  terragrunt plan"
     echo "  terragrunt apply"

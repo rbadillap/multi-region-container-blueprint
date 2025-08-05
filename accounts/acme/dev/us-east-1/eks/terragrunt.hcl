@@ -7,8 +7,11 @@ dependency "networking" {
 }
 
 locals {
+  account      = read_terragrunt_config(find_in_parent_folders("account.hcl"))
+  account_name = local.account.locals.account_name
+
   # Environment-specific variables
-  cluster_name = "client-a-dev-eks"
+  cluster_name = "${local.account_name}-dev-eks"
   region       = "us-east-1"
 }
 
@@ -19,9 +22,9 @@ terraform {
 inputs = {
   cluster_name        = local.cluster_name
   kubernetes_version  = "1.29"
-  vpc_id             = dependency.networking.outputs.vpc_id
-  public_subnet_ids  = dependency.networking.outputs.public_subnet_ids
-  private_subnet_ids = dependency.networking.outputs.private_subnet_ids
+  vpc_id              = dependency.networking.outputs.vpc_id
+  public_subnet_ids   = dependency.networking.outputs.public_subnet_ids
+  private_subnet_ids  = dependency.networking.outputs.private_subnet_ids
   
   # Node group configuration
   node_group_desired_size = 2
