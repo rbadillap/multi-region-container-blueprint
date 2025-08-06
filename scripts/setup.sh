@@ -38,21 +38,15 @@ command_exists() {
 
 # Function to validate parameters
 validate_parameters() {
-    local client=$1
+    local account=$1
     local env=$2
     local region=$3
     
     print_status "Validating parameters..."
     
-    # Validate client name (lowercase letters, numbers, and hyphens only)
-    if [[ ! "$client" =~ ^[a-z0-9-]+$ ]]; then
-        print_error "Client name must contain only lowercase letters, numbers, and hyphens"
-        exit 1
-    fi
-    
-    # Validate environment
-    if [[ ! "$env" =~ ^(dev|staging|prod)$ ]]; then
-        print_error "Environment must be dev, staging, or prod"
+    # Validate account name (lowercase letters, numbers, and hyphens only)
+    if [[ ! "$account" =~ ^[a-z0-9-]+$ ]]; then
+        print_error "Account name must contain only lowercase letters, numbers, and hyphens"
         exit 1
     fi
     
@@ -89,11 +83,11 @@ check_prerequisites() {
 
 # Function to create S3 bucket with enhanced security
 create_s3_bucket() {
-    local client=$1
+    local account=$1
     local env=$2
     local region=$3
     local account_id=$(aws sts get-caller-identity --query Account --output text)
-    local bucket_name="terrawork-${account_id}-${client}-${env}"
+    local bucket_name="terrawork-${account_id}-${account}-${env}-${region}"
     
     print_status "Creating S3 bucket: ${bucket_name}"
     
@@ -141,7 +135,7 @@ create_s3_bucket() {
         # Add tags for resource management
         if ! aws s3api put-bucket-tagging \
             --bucket "${bucket_name}" \
-            --tagging "TagSet=[{Key=Project,Value=Terrawork},{Key=Environment,Value=${env}},{Key=Client,Value=${client}}]"; then
+            --tagging "TagSet=[{Key=Project,Value=Terrawork},{Key=Environment,Value=${env}},{Key=Account,Value=${account}}]"; then
             print_warning "Failed to add tags to bucket ${bucket_name}"
         fi
         
@@ -153,11 +147,11 @@ create_s3_bucket() {
 
 # Function to create DynamoDB table with enhanced configuration
 create_dynamodb_table() {
-    local client=$1
+    local account=$1
     local env=$2
     local region=$3
     local account_id=$(aws sts get-caller-identity --query Account --output text)
-    local table_name="terrawork-locks-${account_id}-${client}-${env}"
+    local table_name="terrawork-locks-${account_id}-${account}-${env}-${region}"
     
     print_status "Creating DynamoDB table: ${table_name}"
     
@@ -185,7 +179,7 @@ create_dynamodb_table() {
         
         if ! aws dynamodb tag-resource \
             --resource-arn "${table_arn}" \
-            --tags "[{Key=Project,Value=Terrawork},{Key=Environment,Value=${env}},{Key=Client,Value=${client}}]"; then
+            --tags "[{Key=Project,Value=Terrawork},{Key=Environment,Value=${env}},{Key=Account,Value=${account}}]"; then
             print_warning "Failed to add tags to DynamoDB table ${table_name}"
         fi
         
@@ -215,18 +209,18 @@ validate_aws_credentials() {
 
 # Main function
 main() {
-    local client=${1:-"acme"}
+    local account=${1:-"acme"}
     local env=${2:-"dev"}
     local region=${3:-"us-east-1"}
     
     print_status "Starting Terrawork setup..."
-    print_status "Client: ${client}"
+    print_status "Account: ${account}"
     print_status "Environment: ${env}"
     print_status "Region: ${region}"
     echo
     
     # Validate parameters
-    validate_parameters "${client}" "${env}" "${region}"
+    validate_parameters "${account}" "${env}" "${region}"
     echo
     
     # Check prerequisites
@@ -238,13 +232,13 @@ main() {
     echo
     
     # Create infrastructure
-    if ! create_s3_bucket "${client}" "${env}" "${region}"; then
+    if ! create_s3_bucket "${account}" "${env}" "${region}"; then
         print_error "Failed to create S3 bucket. Exiting."
         exit 1
     fi
     echo
     
-    if ! create_dynamodb_table "${client}" "${env}" "${region}"; then
+    if ! create_dynamodb_table "${account}" "${env}" "${region}"; then
         print_error "Failed to create DynamoDB table. Exiting."
         exit 1
     fi
@@ -254,7 +248,7 @@ main() {
     print_status "You can now run Terragrunt commands to deploy your infrastructure."
     echo
     print_status "Example commands:"
-    echo "  cd accounts/${client}/${env}/${region}/networking"
+    echo "  cd accounts/${account}/${env}/${region}/networking"
     echo "  terragrunt init"
     echo "  terragrunt plan"
     echo "  terragrunt apply"
@@ -262,8 +256,8 @@ main() {
 
 # Show usage
 usage() {
-    echo "Usage: $0 [client] [environment] [region]"
-    echo "  client:      Client name (default: acme)"
+    echo "Usage: $0 [account] [environment] [region]"
+    echo "  account:     Account name (default: acme)"
     echo "  environment: Environment name (default: dev)"
     echo "  region:      AWS region (default: us-east-1)"
     echo

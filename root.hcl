@@ -3,18 +3,18 @@ locals {
   # Parse the path to extract environment information
   path_parts = split("/", path_relative_to_include())
 
-  # Extract client, environment, region, and component from path
-  client     = local.path_parts[1]
+  # Extract account, environment, region, and component from path
+  account    = local.path_parts[1]
   env        = local.path_parts[2]
   region     = local.path_parts[3]
   component  = local.path_parts[4]
   
   # Common tags
   common_tags = {
-    Project     = "MRCB"
+    Project     = "Terrawork"
     ManagedBy   = "Terragrunt"
     Environment = local.env
-    Client      = local.client
+    Account     = local.account
     Region      = local.region
   }
 }
@@ -23,11 +23,11 @@ locals {
 remote_state {
   backend = "s3"
   config = {
-    bucket         = "mrcb-terraform-state-${local.client}-${local.env}"
+    bucket         = "terrawork-${get_aws_account_id()}-${local.account}-${local.env}-${local.region}"
     key            = "${path_relative_to_include()}/terraform.tfstate"
     region         = local.region
     encrypt        = true
-    dynamodb_table = "mrcb-terraform-locks-${local.client}-${local.env}"
+    dynamodb_table = "terrawork-locks-${get_aws_account_id()}-${local.account}-${local.env}-${local.region}"
   }
   generate = {
     path      = "backend.tf"
