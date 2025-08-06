@@ -59,28 +59,18 @@ locals {
   # Observability profile strategies
   observability_strategies = {
     mission-critical = {
-      enable_cloudwatch_dashboard = true
+      enable_cloudwatch_dashboard = false
       enable_cloudwatch_alarms    = true
       log_retention_days          = 90
       cpu_alarm_threshold         = 80
       memory_alarm_threshold      = 80
-      enable_external_monitoring  = false
     }
     standard = {
-      enable_cloudwatch_dashboard = false
+      enable_cloudwatch_dashboard = true
       enable_cloudwatch_alarms    = true
       log_retention_days          = 30
       cpu_alarm_threshold         = 80
       memory_alarm_threshold      = 80
-      enable_external_monitoring  = false
-    }
-    external = {
-      enable_cloudwatch_dashboard = false
-      enable_cloudwatch_alarms    = false
-      log_retention_days          = 7
-      cpu_alarm_threshold         = 80
-      memory_alarm_threshold      = 80
-      enable_external_monitoring  = true
     }
   }
 }

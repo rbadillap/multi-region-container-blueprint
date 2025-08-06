@@ -75,59 +75,7 @@ variable "service_max_count" {
   default     = 10
 }
 
-variable "enable_cpu_autoscaling" {
-  description = "Enable CPU-based autoscaling"
-  type        = bool
-  default     = true
-}
 
-variable "autoscaling_cpu_target" {
-  description = "Target CPU utilization for autoscaling"
-  type        = number
-  default     = 70
-}
-
-variable "enable_memory_autoscaling" {
-  description = "Enable memory-based autoscaling"
-  type        = bool
-  default     = false
-}
-
-variable "autoscaling_memory_target" {
-  description = "Target memory utilization for autoscaling"
-  type        = number
-  default     = 80
-}
-
-variable "enable_cloudwatch_dashboard" {
-  description = "Enable CloudWatch dashboard for monitoring"
-  type        = bool
-  default     = false
-}
-
-variable "log_retention_days" {
-  description = "Number of days to retain CloudWatch logs"
-  type        = number
-  default     = 30
-}
-
-variable "enable_cloudwatch_alarms" {
-  description = "Enable CloudWatch alarms for monitoring"
-  type        = bool
-  default     = false
-}
-
-variable "cpu_alarm_threshold" {
-  description = "CPU utilization threshold for alarms"
-  type        = number
-  default     = 80
-}
-
-variable "memory_alarm_threshold" {
-  description = "Memory utilization threshold for alarms"
-  type        = number
-  default     = 80
-}
 
 variable "alarm_actions" {
   description = "List of ARNs for alarm actions (SNS topics, etc.)"
@@ -152,14 +100,13 @@ variable "observability_profile" {
     Observability configuration profile:
     - mission-critical: CPU only + alerts (high signal, zero noise) for critical production
     - standard: CPU + Memory with alerts and basic dashboard for staging/QA
-    - external: Exposes ports/env vars for external APM tools (Datadog, Honeycomb, etc.)
   EOT
   type        = string
   default     = "standard"
   
   validation {
-    condition     = contains(["mission-critical", "standard", "external"], var.observability_profile)
-    error_message = "Observability profile must be one of: mission-critical, standard, external"
+    condition     = contains(["mission-critical", "standard"], var.observability_profile)
+    error_message = "Observability profile must be one of: mission-critical, standard"
   }
 }
 
