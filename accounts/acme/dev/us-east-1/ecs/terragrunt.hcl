@@ -39,9 +39,14 @@ inputs = {
   service_min_count     = 1
   service_max_count     = 4
   
-  # Autoscaling
-  enable_autoscaling      = true
-  autoscaling_cpu_target  = 70
+  # Capacity provider strategy
+  strategy_profile = "balanced"
+  
+  # Scaling profile
+  scaling_profile = "balanced"
+  
+  # Observability profile
+  observability_profile = "standard"
   
   # Health check
   health_check_path = "/"
