@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# MRCB Generate Terragrunt Configs Script
+# Terrawork Generate Terragrunt Configs Script
 # This script generates terragrunt.hcl files for all regions and environments
 
 set -e
@@ -11,17 +11,39 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
+# Function to print colored output with timestamp
+log_message() {
+    local level=$1
+    shift
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[${timestamp}] ${level}: $*"
+}
+
 print_status() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    log_message "INFO" "${GREEN}[INFO]${NC} $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    log_message "WARN" "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    log_message "ERROR" "${RED}[ERROR]${NC} $1"
+}
+
+# Function to validate parameters
+validate_parameters() {
+    local account=$1
+    
+    print_status "Validating parameters..."
+    
+    # Validate account name (lowercase letters, numbers, and hyphens only)
+    if [[ ! "$account" =~ ^[a-z0-9-]+$ ]]; then
+        print_error "Account name must contain only lowercase letters, numbers, and hyphens"
+        exit 1
+    fi
+    
+    print_status "Parameters validation passed."
 }
 
 # Function to generate networking terragrunt.hcl
@@ -37,31 +59,6 @@ generate_networking_config() {
         print_status "Generating networking config for ${account}/${env}/${region}"
         mkdir -p "$config_dir"
         
-        # Determine CIDR blocks based on region
-        local vpc_cidr=""
-        local public_subnet_cidrs=""
-        local private_subnet_cidrs=""
-        local availability_zones=""
-        
-        case $region in
-            "us-east-1")
-                vpc_cidr="10.0.0.0/16"
-                public_subnet_cidrs='["10.0.1.0/24", "10.0.2.0/24"]'
-                private_subnet_cidrs='["10.0.10.0/24", "10.0.11.0/24"]'
-                availability_zones='["us-east-1a", "us-east-1b"]'
-                ;;
-            "eu-west-1")
-                vpc_cidr="10.1.0.0/16"
-                public_subnet_cidrs='["10.1.1.0/24", "10.1.2.0/24"]'
-                private_subnet_cidrs='["10.1.10.0/24", "10.1.11.0/24"]'
-                availability_zones='["eu-west-1a", "eu-west-1b"]'
-                ;;
-            *)
-                print_error "Unsupported region: $region"
-                return 1
-                ;;
-        esac
-        
         cat > "$config_file" << EOF
 include "root" {
   path = find_in_parent_folders("root.hcl")
@@ -74,18 +71,6 @@ locals {
   # Environment-specific variables
   name_prefix = "\${local.account_name}-${env}"
   region      = "${region}"
-  
-  # VPC and subnet CIDR blocks
-  vpc_cidr = "${vpc_cidr}"
-  
-  # Availability zones for ${region}
-  availability_zones = ${availability_zones}
-  
-  # Public subnet CIDRs
-  public_subnet_cidrs = ${public_subnet_cidrs}
-  
-  # Private subnet CIDRs
-  private_subnet_cidrs = ${private_subnet_cidrs}
 }
 
 terraform {
@@ -93,15 +78,26 @@ terraform {
 }
 
 inputs = {
-  name_prefix           = local.name_prefix
-  vpc_cidr              = local.vpc_cidr
-  availability_zones    = local.availability_zones
-  public_subnet_cidrs   = local.public_subnet_cidrs
-  private_subnet_cidrs  = local.private_subnet_cidrs
-  enable_nat_gateway    = true
+  name_prefix = local.name_prefix
+  region      = local.region
+  
+  # VPC and subnet configuration
+  vpc_cidr = "10.0.0.0/16"
+  
+  # Availability zones
+  availability_zones = ["${region}a", "${region}b"]
+  
+  # Subnet CIDRs
+  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+  
+  # NAT Gateway
+  enable_nat_gateway = true
+  
   tags = {
     Component = "networking"
     Region    = local.region
+    Environment = "${env}"
   }
 }
 EOF
@@ -176,6 +172,7 @@ inputs = {
   tags = {
     Component = "ecs"
     Region    = local.region
+    Environment = "${env}"
   }
 }
 EOF
@@ -246,6 +243,7 @@ inputs = {
   tags = {
     Component = "eks"
     Region    = local.region
+    Environment = "${env}"
   }
 }
 EOF
@@ -265,6 +263,10 @@ main() {
     print_status "Account: ${account}"
     print_status "Environment: ${env}"
     print_status "Region: ${region}"
+    echo
+    
+    # Validate parameters
+    validate_parameters "${account}"
     echo
     
     # Check if account.hcl exists
