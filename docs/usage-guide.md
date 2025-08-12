@@ -1,6 +1,6 @@
-# MRCB Usage Guide
+# Terrawork Usage Guide
 
-This guide provides step-by-step instructions for using the Multi-Region Container Blueprint (MRCB).
+This guide provides step-by-step instructions for using Terrawork.
 
 > **Note**: This project uses the modern Terragrunt pattern with `root.hcl` as the root configuration file, following the latest best practices from the Terragrunt team.
 
@@ -93,8 +93,8 @@ aws sts get-caller-identity
 Before deploying any infrastructure, you need to create S3 buckets and DynamoDB tables for state management.
 
 ```bash
-# Create S3 bucket for state files
-aws s3 mb s3://mrcb-terraform-state-client-a-dev --region us-east-1
+   # Create S3 bucket for state files
+   aws s3 mb s3://terrawork-terraform-state-client-a-dev --region us-east-1
 
 # Enable versioning on the bucket
 aws s3api put-bucket-versioning \
@@ -397,9 +397,9 @@ kubectl get nodes
 
 4. **Create state management infrastructure:**
    ```bash
-   aws s3 mb s3://mrcb-terraform-state-new-account-dev --region us-east-1
+   aws s3 mb s3://terrawork-terraform-state-new-account-dev --region us-east-1
    aws dynamodb create-table \
-     --table-name mrcb-terraform-locks-new-account-dev \
+     --table-name terrawork-terraform-locks-new-account-dev \
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --billing-mode PAY_PER_REQUEST \
@@ -506,12 +506,12 @@ cd ../networking && terragrunt destroy
 
 ```bash
 # Delete S3 bucket (must be empty first)
-aws s3 rm s3://mrcb-terraform-state-client-a-dev --recursive
-aws s3 rb s3://mrcb-terraform-state-client-a-dev
+aws s3 rm s3://terrawork-terraform-state-client-a-dev --recursive
+aws s3 rb s3://terrawork-terraform-state-client-a-dev
 
 # Delete DynamoDB table
 aws dynamodb delete-table \
-  --table-name mrcb-terraform-locks-client-a-dev \
+  --table-name terrawork-terraform-locks-client-a-dev \
   --region us-east-1
 ```
 

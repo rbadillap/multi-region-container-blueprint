@@ -1,12 +1,12 @@
-# Multi-Region Container Blueprint (MRCB)
+# Terrawork
 
 > Production-grade infrastructure blueprint to deploy **ECS with Fargate** and **EKS** across **multiple AWS regions**, using **Terragrunt + Terraform** following best practices and minimal configuration.
 
 > **Note**: This project uses the modern Terragrunt pattern with `root.hcl` as the root configuration file, following the latest best practices from the Terragrunt team.
 
-## 🎯 What is MRCB?
+## 🎯 What is Terrawork?
 
-MRCB is a reusable and well-structured Terragrunt/Terraform project that enables deploying:
+Terrawork is a reusable and well-structured Terragrunt/Terraform project that enables deploying:
 - Amazon ECS (with Fargate) services
 - Amazon EKS clusters
 - Across multiple AWS accounts and environments (dev/prod) in different regions
@@ -39,7 +39,7 @@ MRCB is a reusable and well-structured Terragrunt/Terraform project that enables
 ## 📁 Project Structure
 
 ```
-mrcb/
+terrawork/
 ├── accounts/                   # Terragrunt configurations per account/env/region
 │   └── acme/
 │       ├── dev/
@@ -81,16 +81,8 @@ mrcb/
 
 1. **Create state management infrastructure:**
    ```bash
-   # Create S3 bucket for state files
-   aws s3 mb s3://mrcb-terraform-state-acme-dev --region us-east-1
-   
-   # Create DynamoDB table for state locking
-   aws dynamodb create-table \
-     --table-name mrcb-terraform-locks-acme-dev \
-     --attribute-definitions AttributeName=LockID,AttributeType=S \
-     --key-schema AttributeName=LockID,KeyType=HASH \
-     --billing-mode PAY_PER_REQUEST \
-     --region us-east-1
+   # Use the bootstrap script for secure and automated setup
+   ./scripts/bootstrap.sh acme dev us-east-1
    ```
 
 2. **Deploy infrastructure:**
@@ -111,7 +103,6 @@ mrcb/
 ## 📚 Documentation
 
 - **[Complete Usage Guide](docs/usage-guide.md)** - Step-by-step deployment instructions, configuration examples, troubleshooting, and advanced usage
-- **[Technical Scope](TECHNICAL-SCOPE.md)** - Detailed technical specifications and requirements
 
 ## 🔧 Key Features
 
@@ -123,12 +114,4 @@ mrcb/
 - **State Management**: S3 backend with DynamoDB locking for team collaboration
 - **Security Best Practices**: Private subnets, security groups, IAM roles with least privilege
 
-## 📞 Support
-
-For support and questions:
-- **Email**: info@rbadillap.dev
-- **Issues**: Create an issue in the repository
-
 ---
-
-**Built with ❤️ by Ronny Badilla** 
