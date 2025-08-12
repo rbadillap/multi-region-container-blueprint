@@ -62,6 +62,8 @@ module "ecs_service" {
 }
 ```
 
+**Profiles**: This module uses predefined profiles for auto-scaling and observability to simplify configuration. Choose the profiles that best fit your application needs:
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |

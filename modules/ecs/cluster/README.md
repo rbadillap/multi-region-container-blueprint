@@ -29,7 +29,9 @@ module "ecs_cluster" {
 }
 ```
 
-## Inputs
+**Strategy Profiles**: This module uses predefined capacity provider strategies to simplify ECS cluster configuration. Choose the profile that best fits your workload requirements:
+
+## Capacity Provider Strategies
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -62,6 +64,23 @@ module "ecs_cluster" {
 - Uses FARGATE_SPOT with FARGATE fallback
 - Suitable for staging environments
 - Good balance of cost and availability
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| cluster_name | Name of the ECS cluster | `string` | n/a | yes |
+| tags | Tags to apply to all resources | `map(string)` | `{}` | no |
+| strategy_profile | Capacity provider strategy profile | `string` | `"balanced"` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| ecs_cluster_name | Name of the ECS cluster |
+| ecs_cluster_arn | ARN of the ECS cluster |
+| task_execution_role_arn | ARN of the task execution role |
+| task_role_arn | ARN of the task role |
 
 ## Dependencies
 
