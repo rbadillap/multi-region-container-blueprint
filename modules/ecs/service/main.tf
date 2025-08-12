@@ -1,34 +1,8 @@
 # Data source for current region
 data "aws_region" "current" {} 
 
-# Capacity provider strategies
+# Scaling profile strategies
 locals {
-  capacity_provider_strategies = {
-    availability = [
-      {
-        capacity_provider = "FARGATE"
-        weight           = 1
-      }
-    ]
-    cost-optimized = [
-      {
-        capacity_provider = "FARGATE_SPOT"
-        weight           = 1
-      }
-    ]
-    balanced = [
-      {
-        capacity_provider = "FARGATE_SPOT"
-        weight           = 1
-      },
-      {
-        capacity_provider = "FARGATE"
-        weight           = 0
-      }
-    ]
-  }
-
-  # Scaling profile strategies
   scaling_strategies = {
     conservative = {
       enable_cpu_autoscaling      = true
@@ -75,79 +49,9 @@ locals {
   }
 }
 
-# ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = var.cluster_name
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
-
-  tags = var.tags
-}
-
-# ECS Cluster Capacity Providers
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name       = aws_ecs_cluster.main.name
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-
-  dynamic "default_capacity_provider_strategy" {
-    for_each = local.capacity_provider_strategies[var.strategy_profile]
-    content {
-      capacity_provider = default_capacity_provider_strategy.value.capacity_provider
-      weight           = default_capacity_provider_strategy.value.weight
-    }
-  }
-}
-
-# Task Execution Role
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.cluster_name}-task-execution-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# Task Role
-resource "aws_iam_role" "ecs_task_role" {
-  name = "${var.cluster_name}-task-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
 # Security Group for ALB
 resource "aws_security_group" "alb" {
-  name_prefix = "${var.cluster_name}-alb-"
+  name_prefix = "${var.service_name}-alb-"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -172,13 +76,13 @@ resource "aws_security_group" "alb" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-alb-sg"
+    Name = "${var.service_name}-alb-sg"
   })
 }
 
 # Security Group for ECS Tasks
 resource "aws_security_group" "ecs_tasks" {
-  name_prefix = "${var.cluster_name}-tasks-"
+  name_prefix = "${var.service_name}-tasks-"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -196,13 +100,13 @@ resource "aws_security_group" "ecs_tasks" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-tasks-sg"
+    Name = "${var.service_name}-tasks-sg"
   })
 }
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "${var.cluster_name}-alb"
+  name               = "${var.service_name}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -215,7 +119,7 @@ resource "aws_lb" "main" {
 
 # ALB Target Group
 resource "aws_lb_target_group" "main" {
-  name        = "${var.cluster_name}-tg"
+  name        = "${var.service_name}-tg"
   port        = var.container_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -250,13 +154,13 @@ resource "aws_lb_listener" "main" {
 
 # ECS Task Definition
 resource "aws_ecs_task_definition" "main" {
-  family                   = "${var.cluster_name}-task"
+  family                   = "${var.service_name}-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
   memory                   = var.task_memory
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  execution_role_arn       = var.task_execution_role_arn
+  task_role_arn            = var.task_role_arn
 
   container_definitions = jsonencode([
     {
@@ -288,7 +192,7 @@ resource "aws_ecs_task_definition" "main" {
 
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "main" {
-  name              = "/ecs/${var.cluster_name}"
+  name              = "/ecs/${var.service_name}"
   retention_in_days = local.observability_strategies[var.observability_profile].log_retention_days
 
   tags = var.tags
@@ -297,7 +201,7 @@ resource "aws_cloudwatch_log_group" "main" {
 # CloudWatch Alarms
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   count               = local.observability_strategies[var.observability_profile].enable_cloudwatch_alarms ? 1 : 0
-  alarm_name          = "${var.cluster_name}-cpu-high"
+  alarm_name          = "${var.service_name}-cpu-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
@@ -309,7 +213,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    ClusterName = aws_ecs_cluster.main.name
+    ClusterName = var.cluster_name
     ServiceName = aws_ecs_service.main.name
   }
 
@@ -318,7 +222,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
 
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
   count               = local.observability_strategies[var.observability_profile].enable_cloudwatch_alarms ? 1 : 0
-  alarm_name          = "${var.cluster_name}-memory-high"
+  alarm_name          = "${var.service_name}-memory-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "MemoryUtilization"
@@ -330,7 +234,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
   alarm_actions       = var.alarm_actions
 
   dimensions = {
-    ClusterName = aws_ecs_cluster.main.name
+    ClusterName = var.cluster_name
     ServiceName = aws_ecs_service.main.name
   }
 
@@ -339,8 +243,8 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
 
 # ECS Service
 resource "aws_ecs_service" "main" {
-  name            = "${var.cluster_name}-service"
-  cluster         = aws_ecs_cluster.main.id
+  name            = "${var.service_name}-service"
+  cluster         = var.cluster_id
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = var.service_desired_count
   launch_type     = null  # Explicitly set to null to use capacity providers
@@ -374,7 +278,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
   count              = (local.scaling_strategies[var.scaling_profile].enable_cpu_autoscaling || local.scaling_strategies[var.scaling_profile].enable_memory_autoscaling) ? 1 : 0
   max_capacity       = var.service_max_count
   min_capacity       = var.service_min_count
-  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.main.name}"
+  resource_id        = "service/${var.cluster_name}/${aws_ecs_service.main.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }
@@ -382,7 +286,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
 # Auto Scaling Policy - CPU
 resource "aws_appautoscaling_policy" "ecs_cpu_policy" {
   count              = local.scaling_strategies[var.scaling_profile].enable_cpu_autoscaling ? 1 : 0
-  name               = "${var.cluster_name}-cpu-scaling-policy"
+  name               = "${var.service_name}-cpu-scaling-policy"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.ecs_target[0].resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_target[0].scalable_dimension
@@ -399,7 +303,7 @@ resource "aws_appautoscaling_policy" "ecs_cpu_policy" {
 # Auto Scaling Policy - Memory
 resource "aws_appautoscaling_policy" "ecs_memory_policy" {
   count              = local.scaling_strategies[var.scaling_profile].enable_memory_autoscaling ? 1 : 0
-  name               = "${var.cluster_name}-memory-scaling-policy"
+  name               = "${var.service_name}-memory-scaling-policy"
   policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.ecs_target[0].resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_target[0].scalable_dimension
@@ -416,7 +320,7 @@ resource "aws_appautoscaling_policy" "ecs_memory_policy" {
 # CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "main" {
   count          = local.observability_strategies[var.observability_profile].enable_cloudwatch_dashboard ? 1 : 0
-  dashboard_name = "${var.cluster_name}-dashboard"
+  dashboard_name = "${var.service_name}-dashboard"
 
   dashboard_body = jsonencode({
     widgets = [
@@ -428,7 +332,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/ECS", "CPUUtilization", "ServiceName", aws_ecs_service.main.name, "ClusterName", aws_ecs_cluster.main.name],
+            ["AWS/ECS", "CPUUtilization", "ServiceName", aws_ecs_service.main.name, "ClusterName", var.cluster_name],
             [".", "MemoryUtilization", ".", ".", ".", "."]
           ]
           period = 300

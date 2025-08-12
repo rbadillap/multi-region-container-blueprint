@@ -1,5 +1,15 @@
+variable "service_name" {
+  description = "Name of the ECS service"
+  type        = string
+}
+
 variable "cluster_name" {
   description = "Name of the ECS cluster"
+  type        = string
+}
+
+variable "cluster_id" {
+  description = "ID of the ECS cluster"
   type        = string
 }
 
@@ -16,6 +26,16 @@ variable "public_subnet_ids" {
 variable "private_subnet_ids" {
   description = "List of private subnet IDs for ECS tasks"
   type        = list(string)
+}
+
+variable "task_execution_role_arn" {
+  description = "ARN of the task execution role"
+  type        = string
+}
+
+variable "task_role_arn" {
+  description = "ARN of the task role"
+  type        = string
 }
 
 variable "container_name" {
@@ -75,8 +95,6 @@ variable "service_max_count" {
   default     = 10
 }
 
-
-
 variable "alarm_actions" {
   description = "List of ARNs for alarm actions (SNS topics, etc.)"
   type        = list(string)
@@ -125,19 +143,3 @@ variable "scaling_profile" {
     error_message = "Scaling profile must be one of: conservative, balanced, responsive"
   }
 }
-
-variable "strategy_profile" {
-  description = <<-EOT
-    Capacity provider strategy profile:
-    - availability: Uses FARGATE for maximum availability (production)
-    - cost-optimized: Uses FARGATE_SPOT for cost savings (development)
-    - balanced: Uses FARGATE_SPOT with FARGATE fallback (staging)
-  EOT
-  type        = string
-  default     = "balanced"
-  
-  validation {
-    condition     = contains(["availability", "cost-optimized", "balanced"], var.strategy_profile)
-    error_message = "Strategy profile must be one of: availability, cost-optimized, balanced"
-  }
-} 

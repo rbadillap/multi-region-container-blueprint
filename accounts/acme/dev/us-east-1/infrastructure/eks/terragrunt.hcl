@@ -3,7 +3,7 @@ include "root" {
 }
 
 dependency "networking" {
-  config_path = "../networking"
+  config_path = "../vpc"
 }
 
 locals {

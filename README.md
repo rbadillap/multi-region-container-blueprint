@@ -41,28 +41,26 @@ MRCB is a reusable and well-structured Terragrunt/Terraform project that enables
 ```
 mrcb/
 ├── accounts/                   # Terragrunt configurations per account/env/region
-│   └── client-a/
+│   └── acme/
 │       ├── dev/
 │       │   ├── us-east-1/
-│       │   │   ├── networking/
-│       │   │   ├── ecs/
-│       │   │   └── eks/
+│       │   │   ├── infrastructure/
+│       │   │   │   ├── vpc/
+│       │   │   │   ├── ecs/
+│       │   │   │   └── eks/
+│       │   │   └── services/
+│       │   │       └── web/
 │       │   └── eu-west-1/
-│       │       ├── networking/
-│       │       ├── ecs/
-│       │       └── eks/
+│       │       └── .gitkeep
 │       └── prod/
 │           ├── us-east-1/
-│           │   ├── networking/
-│           │   ├── ecs/
-│           │   └── eks/
+│           │   └── .gitkeep
 │           └── eu-west-1/
-│               ├── networking/
-│               ├── ecs/
-│               └── eks/
+│               └── .gitkeep
 ├── modules/                   # Reusable Terraform modules
-│   ├── networking/            # VPC, subnets, route tables, NAT, IGW
-│   ├── ecs-fargate/           # ECS Cluster, Task Definition, ALB, Service
+│   ├── vpc/                   # VPC, subnets, route tables, NAT, IGW
+│   ├── ecs/cluster/           # ECS Cluster, Task Definition, ALB, Service
+│   ├── ecs/service/           # ECS Service, Task Definition, ALB
 │   └── eks/                   # EKS Cluster, NodeGroup, IAM, Outputs
 ├── docs/
 │   └── usage-guide.md         # Complete deployment guide
@@ -84,11 +82,11 @@ mrcb/
 1. **Create state management infrastructure:**
    ```bash
    # Create S3 bucket for state files
-   aws s3 mb s3://mrcb-terraform-state-client-a-dev --region us-east-1
+   aws s3 mb s3://mrcb-terraform-state-acme-dev --region us-east-1
    
    # Create DynamoDB table for state locking
    aws dynamodb create-table \
-     --table-name mrcb-terraform-locks-client-a-dev \
+     --table-name mrcb-terraform-locks-acme-dev \
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --billing-mode PAY_PER_REQUEST \
@@ -97,15 +95,15 @@ mrcb/
 
 2. **Deploy infrastructure:**
    ```bash
-   # Deploy networking
-   cd accounts/client-a/dev/us-east-1/networking
+   # Deploy VPC
+   cd accounts/acme/dev/us-east-1/infrastructure/vpc
    terragrunt init && terragrunt apply
    
-   # Deploy ECS
+   # Deploy ECS cluster
    cd ../ecs
    terragrunt init && terragrunt apply
    
-   # Deploy EKS
+   # Deploy EKS cluster
    cd ../eks
    terragrunt init && terragrunt apply
    ```
